@@ -4,7 +4,7 @@ android {
     compileSdkVersion 27
 
     defaultConfig {
-        applicationId "net.yrom.screenrecorder.demo"
+        applicationId "com.easetest.recorder"
         minSdkVersion 21
         targetSdkVersion 27
         versionCode 13
@@ -21,4 +21,8 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+}
+
+dependencies {
+    compile 'org.nanohttpd:nanohttpd:2.3.1'
 }

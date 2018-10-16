@@ -1,4 +1,4 @@
-package net.yrom.screenrecorder;
+package com.netease.testease;
 
 import android.app.Application;
 import android.test.ApplicationTestCase;

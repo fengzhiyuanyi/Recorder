@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package net.yrom.screenrecorder.view;
+package com.netease.testease.view;
 
 import android.content.Context;
 import android.content.res.TypedArray;
@@ -28,7 +28,8 @@ import android.widget.Spinner;
 import android.widget.SpinnerAdapter;
 import android.widget.TextView;
 
-import net.yrom.screenrecorder.R;
+import com.netease.testease.R;
+
 
 /**
  * @author yrom

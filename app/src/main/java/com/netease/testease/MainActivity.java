@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package net.yrom.screenrecorder;
+package com.netease.testease;
 
 import android.annotation.TargetApi;
 import android.app.Activity;
@@ -34,21 +34,29 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
 import android.os.Looper;
 import android.os.StrictMode;
 import android.preference.PreferenceManager;
 import android.util.Log;
 import android.util.Range;
+import android.view.Gravity;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.SpinnerAdapter;
 import android.widget.Toast;
 import android.widget.ToggleButton;
 
-import net.yrom.screenrecorder.view.NamedSpinner;
+import com.netease.testease.http.CoordinateServer;
+import com.netease.testease.view.NamedSpinner;
+
+import com.netease.testease.handler.CoorHandler;
+import com.netease.testease.view.FloatView;
 
 import java.io.File;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -59,8 +67,6 @@ import java.util.Locale;
 import static android.Manifest.permission.RECORD_AUDIO;
 import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
 import static android.os.Build.VERSION_CODES.M;
-import static net.yrom.screenrecorder.ScreenRecorder.AUDIO_AAC;
-import static net.yrom.screenrecorder.ScreenRecorder.VIDEO_AVC;
 
 public class MainActivity extends Activity {
     private static final int REQUEST_MEDIA_PROJECTION = 1;
@@ -99,17 +105,20 @@ public class MainActivity extends Activity {
         mMediaProjectionManager = (MediaProjectionManager) getApplicationContext().getSystemService(MEDIA_PROJECTION_SERVICE);
         mNotifications = new Notifications(getApplicationContext());
         bindViews();
+        initWindow();
+        mHandler = new CoorHandler(mLayout, this);
+        startServer(mHandler);
 
-        Utils.findEncodersByTypeAsync(VIDEO_AVC, infos -> {
-            logCodecInfos(infos, VIDEO_AVC);
+        Utils.findEncodersByTypeAsync(ScreenRecorder.VIDEO_AVC, infos -> {
+            logCodecInfos(infos, ScreenRecorder.VIDEO_AVC);
             mAvcCodecInfos = infos;
             SpinnerAdapter codecsAdapter = createCodecsAdapter(mAvcCodecInfos);
             mVideoCodec.setAdapter(codecsAdapter);
             restoreSelections(mVideoCodec, mVieoResolution, mVideoFramerate, mIFrameInterval, mVideoBitrate);
 
         });
-        Utils.findEncodersByTypeAsync(AUDIO_AAC, infos -> {
-            logCodecInfos(infos, AUDIO_AAC);
+        Utils.findEncodersByTypeAsync(ScreenRecorder.AUDIO_AAC, infos -> {
+            logCodecInfos(infos, ScreenRecorder.AUDIO_AAC);
             mAacCodecInfos = infos;
             SpinnerAdapter codecsAdapter = createCodecsAdapter(mAacCodecInfos);
             mAudioCodec.setAdapter(codecsAdapter);
@@ -222,7 +231,7 @@ public class MainActivity extends Activity {
         int channelCount = getSelectedAudioChannelCount();
         int profile = getSelectedAudioProfile();
 
-        return new AudioEncodeConfig(codec, AUDIO_AAC, bitrate, samplerate, channelCount, profile);
+        return new AudioEncodeConfig(codec, ScreenRecorder.AUDIO_AAC, bitrate, samplerate, channelCount, profile);
     }
 
     private VideoEncodeConfig createVideoConfig() {
@@ -241,7 +250,7 @@ public class MainActivity extends Activity {
         int bitrate = getSelectedVideoBitrate();
         MediaCodecInfo.CodecProfileLevel profileLevel = getSelectedProfileLevel();
         return new VideoEncodeConfig(width, height, bitrate,
-                framerate, iframe, codec, VIDEO_AVC, profileLevel);
+                framerate, iframe, codec, ScreenRecorder.VIDEO_AVC, profileLevel);
     }
 
     private static File getSavingDir() {
@@ -399,7 +408,7 @@ public class MainActivity extends Activity {
         String codecName = getSelectedVideoCodec();
         MediaCodecInfo codec = getVideoCodecInfo(codecName);
         if (codec == null) return;
-        MediaCodecInfo.CodecCapabilities capabilities = codec.getCapabilitiesForType(VIDEO_AVC);
+        MediaCodecInfo.CodecCapabilities capabilities = codec.getCapabilitiesForType(ScreenRecorder.VIDEO_AVC);
         MediaCodecInfo.VideoCapabilities videoCapabilities = capabilities.getVideoCapabilities();
         String[] xes = resolution.split("x");
         if (xes.length != 2) throw new IllegalArgumentException();
@@ -427,7 +436,7 @@ public class MainActivity extends Activity {
         String codecName = getSelectedVideoCodec();
         MediaCodecInfo codec = getVideoCodecInfo(codecName);
         if (codec == null) return;
-        MediaCodecInfo.CodecCapabilities capabilities = codec.getCapabilitiesForType(VIDEO_AVC);
+        MediaCodecInfo.CodecCapabilities capabilities = codec.getCapabilitiesForType(ScreenRecorder.VIDEO_AVC);
         MediaCodecInfo.VideoCapabilities videoCapabilities = capabilities.getVideoCapabilities();
         int selectedBitrate = Integer.parseInt(bitrate) * 1000;
 
@@ -444,7 +453,7 @@ public class MainActivity extends Activity {
         String codecName = getSelectedVideoCodec();
         MediaCodecInfo codec = getVideoCodecInfo(codecName);
         if (codec == null) return;
-        MediaCodecInfo.CodecCapabilities capabilities = codec.getCapabilitiesForType(VIDEO_AVC);
+        MediaCodecInfo.CodecCapabilities capabilities = codec.getCapabilitiesForType(ScreenRecorder.VIDEO_AVC);
         MediaCodecInfo.VideoCapabilities videoCapabilities = capabilities.getVideoCapabilities();
         int[] selectedWithHeight = getSelectedWithHeight();
         boolean isLandscape = selectedPosition == 1;
@@ -470,7 +479,7 @@ public class MainActivity extends Activity {
         String codecName = getSelectedVideoCodec();
         MediaCodecInfo codec = getVideoCodecInfo(codecName);
         if (codec == null) return;
-        MediaCodecInfo.CodecCapabilities capabilities = codec.getCapabilitiesForType(VIDEO_AVC);
+        MediaCodecInfo.CodecCapabilities capabilities = codec.getCapabilitiesForType(ScreenRecorder.VIDEO_AVC);
         MediaCodecInfo.VideoCapabilities videoCapabilities = capabilities.getVideoCapabilities();
         int[] selectedWithHeight = getSelectedWithHeight();
         int selectedFramerate = Integer.parseInt(rate);
@@ -495,7 +504,7 @@ public class MainActivity extends Activity {
             mVideoProfileLevel.setAdapter(null);
             return;
         }
-        MediaCodecInfo.CodecCapabilities capabilities = codec.getCapabilitiesForType(VIDEO_AVC);
+        MediaCodecInfo.CodecCapabilities capabilities = codec.getCapabilitiesForType(ScreenRecorder.VIDEO_AVC);
 
         resetAvcProfileLevelAdapter(capabilities);
     }
@@ -537,7 +546,7 @@ public class MainActivity extends Activity {
             mAudioBitrate.setAdapter(null);
             return;
         }
-        MediaCodecInfo.CodecCapabilities capabilities = codec.getCapabilitiesForType(AUDIO_AAC);
+        MediaCodecInfo.CodecCapabilities capabilities = codec.getCapabilitiesForType(ScreenRecorder.AUDIO_AAC);
 
         resetAudioBitrateAdapter(capabilities);
         resetSampleRateAdapter(capabilities);
@@ -620,7 +629,7 @@ public class MainActivity extends Activity {
     private MediaCodecInfo getVideoCodecInfo(String codecName) {
         if (codecName == null) return null;
         if (mAvcCodecInfos == null) {
-            mAvcCodecInfos = Utils.findEncodersByType(VIDEO_AVC);
+            mAvcCodecInfos = Utils.findEncodersByType(ScreenRecorder.VIDEO_AVC);
         }
         MediaCodecInfo codec = null;
         for (int i = 0; i < mAvcCodecInfos.length; i++) {
@@ -637,7 +646,7 @@ public class MainActivity extends Activity {
     private MediaCodecInfo getAudioCodecInfo(String codecName) {
         if (codecName == null) return null;
         if (mAacCodecInfos == null) {
-            mAacCodecInfos = Utils.findEncodersByType(AUDIO_AAC);
+            mAacCodecInfos = Utils.findEncodersByType(ScreenRecorder.AUDIO_AAC);
         }
         MediaCodecInfo codec = null;
         for (int i = 0; i < mAacCodecInfos.length; i++) {
@@ -758,7 +767,7 @@ public class MainActivity extends Activity {
                         .append("\n  Heights: ").append(videoCaps.getSupportedHeights())
                         .append("\n  Frame Rates: ").append(videoCaps.getSupportedFrameRates())
                         .append("\n  Bitrate: ").append(videoCaps.getBitrateRange());
-                if (VIDEO_AVC.equals(mimeType)) {
+                if (ScreenRecorder.VIDEO_AVC.equals(mimeType)) {
                     MediaCodecInfo.CodecProfileLevel[] levels = caps.profileLevels;
 
                     builder.append("\n  Profile-levels: ");
@@ -853,7 +862,7 @@ public class MainActivity extends Activity {
         private void viewResult(File file) {
             Intent view = new Intent(Intent.ACTION_VIEW);
             view.addCategory(Intent.CATEGORY_DEFAULT);
-            view.setDataAndType(Uri.fromFile(file), VIDEO_AVC);
+            view.setDataAndType(Uri.fromFile(file), ScreenRecorder.VIDEO_AVC);
             view.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             try {
                 startActivity(view);
@@ -862,5 +871,53 @@ public class MainActivity extends Activity {
             }
         }
     };
+
+    private FloatView mLayout = null;
+    private CoorHandler mHandler;
+    private WindowManager mWindowManager;
+    private WindowManager.LayoutParams param;
+    private CoordinateServer mServer;
+
+    private void initWindow(){
+        mWindowManager = (WindowManager)getApplicationContext().getSystemService(Context.WINDOW_SERVICE);     //获取WindowManager
+        param = ((UApplication)getApplication()).getMywmParams();
+        param.type= WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;     // 系统提示类型,重要
+        param.format = 1;
+        param.flags = WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS |
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS |
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH |
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL; // 不能抢占聚焦点
+        param.alpha = 1.0f;
+        param.gravity = Gravity.LEFT | Gravity.TOP;   //调整悬浮窗口至左上角
+        param.systemUiVisibility = View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
+    }
+
+    public void showFloatView() {
+        if (mLayout == null){
+            mLayout = new FloatView(getApplicationContext());
+            mLayout.setFocusable(false);
+        }
+        mHandler.updateFloatView(mLayout);
+        mWindowManager.addView(mLayout, param);
+    }
+
+    private void startServer(Handler mHandler) {
+        try {
+            if (mServer == null){
+                mServer = new CoordinateServer(9000, mHandler);
+                mServer.start();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void stratRecord() {
+        onButtonClick(null);
+    }
+
+    public void stopRecord() {
+        onButtonClick(null);
+    }
 
 }

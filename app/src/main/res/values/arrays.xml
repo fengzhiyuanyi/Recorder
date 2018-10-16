@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <resources>
     <!-- width x height -->
+    <!--<item>480x360</item>-->
     <string-array name="video_resolutions">
-        <item>480x360</item>
         <item>720x480</item>
         <item>1280x720</item>
         <item>1920x1080</item>

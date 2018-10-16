@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package net.yrom.screenrecorder;
+package com.netease.testease;
 
 import android.annotation.TargetApi;
 import android.app.Notification;
@@ -29,7 +29,7 @@ import android.os.SystemClock;
 import android.text.format.DateUtils;
 
 import static android.os.Build.VERSION_CODES.O;
-import static net.yrom.screenrecorder.MainActivity.ACTION_STOP;
+import static com.netease.testease.MainActivity.ACTION_STOP;
 
 /**
  * @author yrom

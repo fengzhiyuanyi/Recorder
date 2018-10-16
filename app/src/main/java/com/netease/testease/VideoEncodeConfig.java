@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package net.yrom.screenrecorder;
+package com.netease.testease;
 
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
