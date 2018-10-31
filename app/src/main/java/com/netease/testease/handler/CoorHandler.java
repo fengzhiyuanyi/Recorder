@@ -7,6 +7,7 @@ import android.util.Log;
 import android.view.View;
 
 import com.netease.testease.MainActivity;
+import com.netease.testease.RecordingStatus;
 import com.netease.testease.view.FloatView;
 
 public class CoorHandler extends Handler {
@@ -25,15 +26,17 @@ public class CoorHandler extends Handler {
         Bundle bundle;
         String data;
         String[] coor;
+        boolean isShown = true;
         if (this.mLayout == null || !this.mLayout.isShown()){
-            this.mActivity.showFloatView();
+            isShown = this.mActivity.showFloatView();
         }
         switch (msg.what){
             case 0:
                 bundle = msg.getData();
-                data = bundle.getString("coor");
+                data = bundle.getString("data");
+                assert data != null;
                 coor = data.substring(1, data.length() - 1).split(", ");
-                if (coor.length == 5){
+                if (coor.length == 5 && isShown){
                     int fX = Integer.parseInt(coor[0]);
                     int fY = Integer.parseInt(coor[1]);
                     int tX = Integer.parseInt(coor[2]);
@@ -43,7 +46,7 @@ public class CoorHandler extends Handler {
                     Message message = new Message();
                     message.what = 1;
                     sendMessageDelayed(message, 600);
-                }else if (coor.length == 3 || coor.length == 2){
+                }else if ((coor.length == 3 || coor.length == 2) && isShown){
                     int x = (int)Float.parseFloat(coor[0]);
                     int y = (int)Float.parseFloat(coor[1]);
                     mLayout.setVisibility(View.VISIBLE);
@@ -55,16 +58,18 @@ public class CoorHandler extends Handler {
                     if(coor[0].contains("start_record")){
                         System.out.println("Begin Recording");
                         if (mActivity != null){
-                            mActivity.stratRecord();
+                            mActivity.startRecord();
+                            RecordingStatus.getInstance().setRecordStatus(true);
                         }else {
-                            Log.i(TAG, "service is down, start recording failed!");
+                            Log.i(TAG, "activity is down, start recording failed!");
                         }
                     }else if(coor[0].contains("stop_record")){
                         System.out.println("Stop Recording");
                         if (mActivity != null){
                             mActivity.stopRecord();
+                            RecordingStatus.getInstance().setRecordStatus(false);
                         }else {
-                            Log.i(TAG, "service is down, start recording failed!");
+                            Log.i(TAG, "activity is down, stop recording failed!");
                         }
                     }
                 }

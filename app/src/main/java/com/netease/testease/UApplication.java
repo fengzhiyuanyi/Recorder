@@ -3,6 +3,8 @@ package com.netease.testease;
 import android.app.Application;
 import android.view.WindowManager;
 
+import com.netease.testease.handler.CrashHandler;
+
 public class UApplication extends Application {
 
     /**
@@ -17,6 +19,12 @@ public class UApplication extends Application {
 
     public WindowManager.LayoutParams getMywmParams(){
         return wmParams;
+    }
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        CrashHandler.getInstance().init(this);
     }
 
 }

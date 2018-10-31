@@ -38,6 +38,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.StrictMode;
 import android.preference.PreferenceManager;
+import android.provider.Settings;
 import android.util.Log;
 import android.util.Range;
 import android.view.Gravity;
@@ -46,6 +47,7 @@ import android.view.WindowManager;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.SpinnerAdapter;
+import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
 
@@ -65,16 +67,18 @@ import java.util.List;
 import java.util.Locale;
 
 import static android.Manifest.permission.RECORD_AUDIO;
+import static android.Manifest.permission.SYSTEM_ALERT_WINDOW;
 import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
 import static android.os.Build.VERSION_CODES.M;
 
 public class MainActivity extends Activity {
     private static final int REQUEST_MEDIA_PROJECTION = 1;
+    private static final int REQUEST_ALERT_PROJECTION = 10;
     private static final int REQUEST_PERMISSIONS = 2;
     // members below will be initialized in onCreate()
     private MediaProjectionManager mMediaProjectionManager;
     private Button mButton;
-    private ToggleButton mAudioToggle;
+//    private ToggleButton mAudioToggle;
     private NamedSpinner mVieoResolution;
     private NamedSpinner mVideoFramerate;
     private NamedSpinner mIFrameInterval;
@@ -90,6 +94,9 @@ public class MainActivity extends Activity {
     private MediaCodecInfo[] mAvcCodecInfos; // avc codecs
     private MediaCodecInfo[] mAacCodecInfos; // aac codecs
     private Notifications mNotifications;
+
+    private TextView tvVedioSetting;
+    private TextView tvAudioSetting;
 
     /**
      * <b>NOTE:</b>
@@ -124,9 +131,9 @@ public class MainActivity extends Activity {
             mAudioCodec.setAdapter(codecsAdapter);
             restoreSelections(mAudioCodec, mAudioChannelCount);
         });
-        mAudioToggle.setChecked(
-                PreferenceManager.getDefaultSharedPreferences(getApplicationContext())
-                        .getBoolean(getResources().getResourceEntryName(mAudioToggle.getId()), true));
+//        mAudioToggle.setChecked(
+//                PreferenceManager.getDefaultSharedPreferences(getApplicationContext())
+//                        .getBoolean(getResources().getResourceEntryName(mAudioToggle.getId()), true));
     }
 
     @Override
@@ -178,6 +185,10 @@ public class MainActivity extends Activity {
             } else {
                 cancelRecorder();
             }
+        }else if(requestCode == REQUEST_ALERT_PROJECTION){
+            if (hasAlertPermission()){
+                showFloatView();
+            }
         }
     }
 
@@ -221,7 +232,7 @@ public class MainActivity extends Activity {
     }
 
     private AudioEncodeConfig createAudioConfig() {
-        if (!mAudioToggle.isChecked()) return null;
+//        if (!mAudioToggle.isChecked()) return null;
         String codec = getSelectedAudioCodec();
         if (codec == null) {
             return null;
@@ -303,11 +314,17 @@ public class MainActivity extends Activity {
         mAudioProfile = findViewById(R.id.aac_profile);
         mAudioChannelCount = findViewById(R.id.audio_channel_count);
 
-        mAudioToggle = findViewById(R.id.with_audio);
-        mAudioToggle.setOnCheckedChangeListener((buttonView, isChecked) ->
-                findViewById(R.id.audio_format_chooser)
-                        .setVisibility(isChecked ? View.VISIBLE : View.GONE)
-        );
+        tvAudioSetting = findViewById(R.id.audio_setting);
+        tvVedioSetting = findViewById(R.id.vedio_setting);
+
+        tvAudioSetting.setOnClickListener(this::onAudioSettingClick);
+        tvVedioSetting.setOnClickListener(this::onVedioSettingClick);
+
+//        mAudioToggle = findViewById(R.id.with_audio);
+//        mAudioToggle.setOnCheckedChangeListener((buttonView, isChecked) ->
+//                findViewById(R.id.audio_format_chooser)
+//                        .setVisibility(isChecked ? View.VISIBLE : View.GONE)
+//        );
 
         if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
             mOrientation.setSelectedPosition(1);
@@ -333,6 +350,42 @@ public class MainActivity extends Activity {
         });
     }
 
+    private void onVedioSettingClick(View view) {
+        if(mVideoCodec.getVisibility() == View.GONE){
+            mVideoCodec.setVisibility(View.VISIBLE);
+            mVieoResolution.setVisibility(View.VISIBLE);
+            mVideoBitrate.setVisibility(View.VISIBLE);
+            mVideoFramerate.setVisibility(View.VISIBLE);
+            mIFrameInterval.setVisibility(View.VISIBLE);
+            mVideoProfileLevel.setVisibility(View.VISIBLE);
+            mOrientation.setVisibility(View.VISIBLE);
+        }else {
+            mVideoCodec.setVisibility(View.GONE);
+            mVieoResolution.setVisibility(View.GONE);
+            mVideoBitrate.setVisibility(View.GONE);
+            mVideoFramerate.setVisibility(View.GONE);
+            mIFrameInterval.setVisibility(View.GONE);
+            mVideoProfileLevel.setVisibility(View.GONE);
+            mOrientation.setVisibility(View.GONE);
+        }
+    }
+
+    private void onAudioSettingClick(View view) {
+        if(mAudioBitrate.getVisibility() == View.GONE){
+            mAudioBitrate.setVisibility(View.VISIBLE);
+            mAudioSampleRate.setVisibility(View.VISIBLE);
+            mAudioChannelCount.setVisibility(View.VISIBLE);
+            mAudioCodec.setVisibility(View.VISIBLE);
+            mAudioProfile.setVisibility(View.VISIBLE);
+        }else {
+            mAudioBitrate.setVisibility(View.GONE);
+            mAudioSampleRate.setVisibility(View.GONE);
+            mAudioChannelCount.setVisibility(View.GONE);
+            mAudioCodec.setVisibility(View.GONE);
+            mAudioProfile.setVisibility(View.GONE);
+        }
+    }
+
     private void onButtonClick(View v) {
         if (mRecorder != null) {
             stopRecorder();
@@ -348,7 +401,7 @@ public class MainActivity extends Activity {
     private void startRecorder() {
         if (mRecorder == null) return;
         mRecorder.start();
-        mButton.setText("Stop Recorder");
+        mButton.setText(R.string.stop_recorder);
         registerReceiver(mStopActionReceiver, new IntentFilter(ACTION_STOP));
         moveTaskToBack(true);
     }
@@ -359,7 +412,7 @@ public class MainActivity extends Activity {
             mRecorder.quit();
         }
         mRecorder = null;
-        mButton.setText("Restart recorder");
+        mButton.setText(R.string.start_recorder);
         try {
             unregisterReceiver(mStopActionReceiver);
         } catch (Exception e) {
@@ -375,9 +428,10 @@ public class MainActivity extends Activity {
 
     @TargetApi(M)
     private void requestPermissions() {
-        String[] permissions = mAudioToggle.isChecked()
-                ? new String[]{WRITE_EXTERNAL_STORAGE, RECORD_AUDIO}
-                : new String[]{WRITE_EXTERNAL_STORAGE};
+        String[] permissions = new String[]{WRITE_EXTERNAL_STORAGE, RECORD_AUDIO};
+//        String[] permissions = mAudioToggle.isChecked()
+//                ? new String[]{WRITE_EXTERNAL_STORAGE, RECORD_AUDIO}
+//                : new String[]{WRITE_EXTERNAL_STORAGE};
         boolean showRationale = false;
         for (String perm : permissions) {
             showRationale |= shouldShowRequestPermissionRationale(perm);
@@ -399,9 +453,18 @@ public class MainActivity extends Activity {
     private boolean hasPermissions() {
         PackageManager pm = getPackageManager();
         String packageName = getPackageName();
-        int granted = (mAudioToggle.isChecked() ? pm.checkPermission(RECORD_AUDIO, packageName) : PackageManager.PERMISSION_GRANTED)
-                | pm.checkPermission(WRITE_EXTERNAL_STORAGE, packageName);
+        int granted = pm.checkPermission(RECORD_AUDIO, packageName) | pm.checkPermission(WRITE_EXTERNAL_STORAGE, packageName);
+//        int granted = (mAudioToggle.isChecked() ? pm.checkPermission(RECORD_AUDIO, packageName) : PackageManager.PERMISSION_GRANTED)
+//                | pm.checkPermission(WRITE_EXTERNAL_STORAGE, packageName);
         return granted == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private boolean hasAlertPermission(){
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            return Settings.canDrawOverlays(this);
+        }else {
+            return true;
+        }
     }
 
     private void onResolutionChanged(int selectedPosition, String resolution) {
@@ -817,7 +880,7 @@ public class MainActivity extends Activity {
         }) {
             saveSelectionToPreferences(edit, spinner);
         }
-        edit.putBoolean(getResources().getResourceEntryName(mAudioToggle.getId()), mAudioToggle.isChecked());
+//        edit.putBoolean(getResources().getResourceEntryName(mAudioToggle.getId()), mAudioToggle.isChecked());
         edit.apply();
     }
 
@@ -881,7 +944,11 @@ public class MainActivity extends Activity {
     private void initWindow(){
         mWindowManager = (WindowManager)getApplicationContext().getSystemService(Context.WINDOW_SERVICE);     //获取WindowManager
         param = ((UApplication)getApplication()).getMywmParams();
-        param.type= WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;     // 系统提示类型,重要
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            param.type= WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;     // 系统提示类型,重要
+        }else {
+            param.type= WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;     // 系统提示类型,重要
+        }
         param.format = 1;
         param.flags = WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS |
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS |
@@ -892,13 +959,29 @@ public class MainActivity extends Activity {
         param.systemUiVisibility = View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
     }
 
-    public void showFloatView() {
-        if (mLayout == null){
-            mLayout = new FloatView(getApplicationContext());
-            mLayout.setFocusable(false);
+    public boolean showFloatView() {
+        if (!hasAlertPermission()){
+            requestAlertWindowPermission();
+            return false;
+        }else {
+            if (mLayout == null){
+                mLayout = new FloatView(getApplicationContext());
+                mLayout.setFocusable(false);
+            }
+            mHandler.updateFloatView(mLayout);
+            mWindowManager.addView(mLayout, param);
+            return true;
         }
-        mHandler.updateFloatView(mLayout);
-        mWindowManager.addView(mLayout, param);
+    }
+
+    private void requestAlertWindowPermission() {
+        if (Build.VERSION.SDK_INT >= 23) {
+            if(!Settings.canDrawOverlays(this)) {
+                Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION);
+                intent.setData(Uri.parse("package:" + getPackageName()));
+                startActivityForResult(intent,REQUEST_ALERT_PROJECTION);
+            }
+        }
     }
 
     private void startServer(Handler mHandler) {
@@ -912,12 +995,23 @@ public class MainActivity extends Activity {
         }
     }
 
-    public void stratRecord() {
-        onButtonClick(null);
+    public void startRecord() {
+        if (mRecorder != null) {
+            stopRecorder();
+        }
+        if (hasPermissions()) {
+            startCaptureIntent();
+        } else if (Build.VERSION.SDK_INT >= M) {
+            requestPermissions();
+        } else {
+            toast("No permission to write sd card");
+        }
     }
 
     public void stopRecord() {
-        onButtonClick(null);
+        if (mRecorder != null) {
+            stopRecorder();
+        }
     }
 
 }

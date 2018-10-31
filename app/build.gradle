@@ -1,19 +1,36 @@
 apply plugin: 'com.android.application'
 
 android {
+    signingConfigs {
+        releaseConfig {
+            keyAlias 'testease'
+            keyPassword 'password'
+            storeFile file('D:/works/Android/keystore/testease.jks')
+            storePassword 'password'
+            v2SigningEnabled false
+        }
+    }
     compileSdkVersion 27
-
     defaultConfig {
         applicationId "com.easetest.recorder"
         minSdkVersion 21
         targetSdkVersion 27
-        versionCode 13
-        versionName '2.4'
+        versionCode 10
+        versionName '1.0'
     }
-
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
+    }
+    android.applicationVariants.all {
+        variant ->
+            variant.outputs.all { output ->  // each 改为 all
+                def fileName = "${defaultConfig.applicationId}_" + "${variant.versionName}.apk"
+                def outFile = output.outputFile
+                if (outFile != null && outFile.name.endsWith('.apk')) {
+                    outputFileName = fileName  //  output.outputFile 改为 outputFileName
+                }
+            }
     }
     buildTypes {
         release {

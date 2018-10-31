@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <string name="app_name">Screen Recorder</string>
+    <string name="app_name">recorder</string>
+    <string name="start_recorder">START RECORDER</string>
+    <string name="stop_recorder">Stop Recorder</string>
+    <string name="Video_Encode">Video Encode Config (H.264 AVC)</string>
+    <string name="Audio_Encode">Audio Encode Config (H.264 AAC)</string>
+    <string name="without_audio">Without Audio</string>
+    <string name="with_audio">With Audio</string>
 </resources>
