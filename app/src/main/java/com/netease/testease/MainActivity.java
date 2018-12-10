@@ -20,13 +20,16 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.graphics.PixelFormat;
 import android.media.MediaCodecInfo;
 import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
@@ -35,6 +38,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.Looper;
 import android.os.StrictMode;
 import android.preference.PreferenceManager;
@@ -49,7 +53,6 @@ import android.widget.Button;
 import android.widget.SpinnerAdapter;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.ToggleButton;
 
 import com.netease.testease.http.CoordinateServer;
 import com.netease.testease.view.NamedSpinner;
@@ -65,9 +68,9 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.logging.Logger;
 
 import static android.Manifest.permission.RECORD_AUDIO;
-import static android.Manifest.permission.SYSTEM_ALERT_WINDOW;
 import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
 import static android.os.Build.VERSION_CODES.M;
 
@@ -78,7 +81,6 @@ public class MainActivity extends Activity {
     // members below will be initialized in onCreate()
     private MediaProjectionManager mMediaProjectionManager;
     private Button mButton;
-//    private ToggleButton mAudioToggle;
     private NamedSpinner mVieoResolution;
     private NamedSpinner mVideoFramerate;
     private NamedSpinner mIFrameInterval;
@@ -97,6 +99,9 @@ public class MainActivity extends Activity {
 
     private TextView tvVedioSetting;
     private TextView tvAudioSetting;
+    private Button btnSettingSwitch;
+
+    private boolean reShowFloatView = false;
 
     /**
      * <b>NOTE:</b>
@@ -105,9 +110,25 @@ public class MainActivity extends Activity {
      */
     private ScreenRecorder mRecorder;
 
+    private ServiceConnection mConnection = new ServiceConnection() {
+
+        @Override
+        public void onServiceConnected(ComponentName className, IBinder service) {
+            LifeService.LifeBinder binder = (LifeService.LifeBinder) service;
+            binder.getService().setRecord(mRecorder);
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName arg0) {
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+//            requestAlertWindowPermission();
+//        }
         setContentView(R.layout.activity_main);
         mMediaProjectionManager = (MediaProjectionManager) getApplicationContext().getSystemService(MEDIA_PROJECTION_SERVICE);
         mNotifications = new Notifications(getApplicationContext());
@@ -131,9 +152,6 @@ public class MainActivity extends Activity {
             mAudioCodec.setAdapter(codecsAdapter);
             restoreSelections(mAudioCodec, mAudioChannelCount);
         });
-//        mAudioToggle.setChecked(
-//                PreferenceManager.getDefaultSharedPreferences(getApplicationContext())
-//                        .getBoolean(getResources().getResourceEntryName(mAudioToggle.getId()), true));
     }
 
     @Override
@@ -232,7 +250,6 @@ public class MainActivity extends Activity {
     }
 
     private AudioEncodeConfig createAudioConfig() {
-//        if (!mAudioToggle.isChecked()) return null;
         String codec = getSelectedAudioCodec();
         if (codec == null) {
             return null;
@@ -287,8 +304,10 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        saveSelections();
+        Log.i("MainActivity===", "onDestroy");
         stopRecorder();
+        saveSelections();
+        removeFloatView();
     }
 
     private void startCaptureIntent() {
@@ -317,8 +336,9 @@ public class MainActivity extends Activity {
         tvAudioSetting = findViewById(R.id.audio_setting);
         tvVedioSetting = findViewById(R.id.vedio_setting);
 
-        tvAudioSetting.setOnClickListener(this::onAudioSettingClick);
-        tvVedioSetting.setOnClickListener(this::onVedioSettingClick);
+        btnSettingSwitch = findViewById(R.id.btn_setting_show);
+
+        btnSettingSwitch.setOnClickListener(this::onSettingSwitchClick);
 
 //        mAudioToggle = findViewById(R.id.with_audio);
 //        mAudioToggle.setOnCheckedChangeListener((buttonView, isChecked) ->
@@ -350,8 +370,10 @@ public class MainActivity extends Activity {
         });
     }
 
-    private void onVedioSettingClick(View view) {
-        if(mVideoCodec.getVisibility() == View.GONE){
+    private void onSettingSwitchClick(View view) {
+        if(mAudioBitrate.getVisibility() == View.INVISIBLE){
+            tvVedioSetting.setVisibility(View.VISIBLE);
+            tvAudioSetting.setVisibility(View.VISIBLE);
             mVideoCodec.setVisibility(View.VISIBLE);
             mVieoResolution.setVisibility(View.VISIBLE);
             mVideoBitrate.setVisibility(View.VISIBLE);
@@ -359,51 +381,59 @@ public class MainActivity extends Activity {
             mIFrameInterval.setVisibility(View.VISIBLE);
             mVideoProfileLevel.setVisibility(View.VISIBLE);
             mOrientation.setVisibility(View.VISIBLE);
-        }else {
-            mVideoCodec.setVisibility(View.GONE);
-            mVieoResolution.setVisibility(View.GONE);
-            mVideoBitrate.setVisibility(View.GONE);
-            mVideoFramerate.setVisibility(View.GONE);
-            mIFrameInterval.setVisibility(View.GONE);
-            mVideoProfileLevel.setVisibility(View.GONE);
-            mOrientation.setVisibility(View.GONE);
-        }
-    }
-
-    private void onAudioSettingClick(View view) {
-        if(mAudioBitrate.getVisibility() == View.GONE){
             mAudioBitrate.setVisibility(View.VISIBLE);
             mAudioSampleRate.setVisibility(View.VISIBLE);
             mAudioChannelCount.setVisibility(View.VISIBLE);
             mAudioCodec.setVisibility(View.VISIBLE);
             mAudioProfile.setVisibility(View.VISIBLE);
         }else {
-            mAudioBitrate.setVisibility(View.GONE);
-            mAudioSampleRate.setVisibility(View.GONE);
-            mAudioChannelCount.setVisibility(View.GONE);
-            mAudioCodec.setVisibility(View.GONE);
-            mAudioProfile.setVisibility(View.GONE);
+            tvVedioSetting.setVisibility(View.INVISIBLE);
+            tvAudioSetting.setVisibility(View.INVISIBLE);
+            mAudioBitrate.setVisibility(View.INVISIBLE);
+            mAudioSampleRate.setVisibility(View.INVISIBLE);
+            mAudioChannelCount.setVisibility(View.INVISIBLE);
+            mAudioCodec.setVisibility(View.INVISIBLE);
+            mAudioProfile.setVisibility(View.INVISIBLE);
+            mVideoCodec.setVisibility(View.INVISIBLE);
+            mVieoResolution.setVisibility(View.INVISIBLE);
+            mVideoBitrate.setVisibility(View.INVISIBLE);
+            mVideoFramerate.setVisibility(View.INVISIBLE);
+            mIFrameInterval.setVisibility(View.INVISIBLE);
+            mVideoProfileLevel.setVisibility(View.INVISIBLE);
+            mOrientation.setVisibility(View.INVISIBLE);
         }
     }
 
     private void onButtonClick(View v) {
         if (mRecorder != null) {
             stopRecorder();
-        } else if (hasPermissions()) {
-            startCaptureIntent();
-        } else if (Build.VERSION.SDK_INT >= M) {
-            requestPermissions();
         } else {
-            toast("No permission to write sd card");
+            if(mLayout != null){
+                removeFloatView();
+                reShowFloatView = true;
+            }
+            if (hasPermissions()) {
+                startCaptureIntent();
+            } else if (Build.VERSION.SDK_INT >= M) {
+                requestPermissions();
+            } else {
+                toast("No permission to write sd card");
+            }
         }
     }
 
     private void startRecorder() {
         if (mRecorder == null) return;
+        if (reShowFloatView){
+            showFloatView();
+            reShowFloatView = false;
+        }
         mRecorder.start();
         mButton.setText(R.string.stop_recorder);
         registerReceiver(mStopActionReceiver, new IntentFilter(ACTION_STOP));
         moveTaskToBack(true);
+        Intent intent = new Intent(this, LifeService.class);
+        bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
     }
 
     private void stopRecorder() {
@@ -465,6 +495,18 @@ public class MainActivity extends Activity {
         }else {
             return true;
         }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        Log.i("MainActivity===", "onResume");
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        Log.i("MainActivity===", "onStop");
     }
 
     private void onResolutionChanged(int selectedPosition, String resolution) {
@@ -832,7 +874,6 @@ public class MainActivity extends Activity {
                         .append("\n  Bitrate: ").append(videoCaps.getBitrateRange());
                 if (ScreenRecorder.VIDEO_AVC.equals(mimeType)) {
                     MediaCodecInfo.CodecProfileLevel[] levels = caps.profileLevels;
-
                     builder.append("\n  Profile-levels: ");
                     for (MediaCodecInfo.CodecProfileLevel level : levels) {
                         builder.append("\n  ").append(Utils.avcProfileLevelToString(level));
@@ -949,13 +990,14 @@ public class MainActivity extends Activity {
         }else {
             param.type= WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;     // 系统提示类型,重要
         }
-        param.format = 1;
+        param.format = PixelFormat.TRANSLUCENT;
         param.flags = WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS |
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE |
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS |
-                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH |
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL; // 不能抢占聚焦点
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL; // 不能抢占聚焦点 | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
         param.alpha = 1.0f;
-        param.gravity = Gravity.LEFT | Gravity.TOP;   //调整悬浮窗口至左上角
+        param.gravity = Gravity.START | Gravity.TOP;   //调整悬浮窗口至左上角
         param.systemUiVisibility = View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
     }
 
@@ -972,6 +1014,22 @@ public class MainActivity extends Activity {
             mWindowManager.addView(mLayout, param);
             return true;
         }
+    }
+
+    public void removeFloatView(){
+        if(mLayout != null){
+            mWindowManager.removeView(mLayout);
+            mLayout = null;
+        }
+
+    }
+
+    public void setReShowFloatView(boolean show){
+        reShowFloatView = show;
+    }
+
+    public boolean getReShowFloatView(){
+        return reShowFloatView;
     }
 
     private void requestAlertWindowPermission() {
@@ -1013,5 +1071,7 @@ public class MainActivity extends Activity {
             stopRecorder();
         }
     }
+
+
 
 }

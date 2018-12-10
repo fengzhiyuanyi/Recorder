@@ -107,6 +107,10 @@ public class ScreenRecorder {
 
     }
 
+    public void quit1(){
+        mMuxer.stop();
+    }
+
     public void start() {
         if (mWorker != null) throw new IllegalStateException();
         mWorker = new HandlerThread(TAG);
@@ -490,6 +494,7 @@ public class ScreenRecorder {
             try {
                 mMuxer.stop();
                 mMuxer.release();
+                Log.i("MainActivity===", "stopRecorder Success");
             } catch (Exception e) {
                 // ignored
             }

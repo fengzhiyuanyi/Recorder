@@ -8,4 +8,6 @@
     <string name="Audio_Encode">Audio Encode Config (H.264 AAC)</string>
     <string name="without_audio">Without Audio</string>
     <string name="with_audio">With Audio</string>
+    <string name="setting_switch">SETTING SWITCH</string>
+    <string name="permission_failure_tip">获取权限失败， 应用即将退出</string>
 </resources>

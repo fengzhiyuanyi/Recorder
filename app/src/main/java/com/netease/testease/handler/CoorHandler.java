@@ -27,7 +27,7 @@ public class CoorHandler extends Handler {
         String data;
         String[] coor;
         boolean isShown = true;
-        if (this.mLayout == null || !this.mLayout.isShown()){
+        if (!mActivity.getReShowFloatView() && (this.mLayout == null || !this.mLayout.isShown())){
             isShown = this.mActivity.showFloatView();
         }
         switch (msg.what){
@@ -58,6 +58,8 @@ public class CoorHandler extends Handler {
                     if(coor[0].contains("start_record")){
                         System.out.println("Begin Recording");
                         if (mActivity != null){
+                            mActivity.removeFloatView();
+                            mActivity.setReShowFloatView(true);
                             mActivity.startRecord();
                             RecordingStatus.getInstance().setRecordStatus(true);
                         }else {
